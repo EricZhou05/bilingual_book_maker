@@ -1,0 +1,12 @@
+{
+  "providers": {
+    "siliconflow": {
+      "api_style": "openai",
+      "base_url": "https://api.siliconflow.cn/v1",
+      "default_models": [
+        "deepseek-ai/DeepSeek-V3.2"
+      ],
+      "env_key": "BBM_SILICONFLOW_API_KEY"
+    }
+  }
+}
