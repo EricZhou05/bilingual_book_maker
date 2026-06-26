@@ -145,3 +145,5 @@ log/
 books/
 prompts/
 .pdm-python
+
+.omo/
