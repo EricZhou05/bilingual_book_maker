@@ -29,7 +29,12 @@ class EPUBBookLoaderHelper:
             return
         new_p = copy(p)
         new_p.clear()
-        new_p.append(bs(text, "html.parser"))
+        
+        parsed = bs(text, "html.parser")
+        if len(parsed.contents) > 0:
+            new_p.append(parsed)
+        else:
+            new_p.append(text)
         
         # fix EPUB duplicate id issue
         if not single_translate and new_p.has_attr('id'):
