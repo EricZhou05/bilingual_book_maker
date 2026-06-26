@@ -100,6 +100,7 @@ O3MINI_MODEL_LIST = [
 
 class ChatGPTAPI(Base):
     DEFAULT_PROMPT = "Please help me to translate,`{text}` to {language}, please return only translated content not include the origin text"
+    DEFAULT_SYS_MSG = "You are a professional translator. Strictly adhere to the original punctuation and formatting (e.g., keep \"3\" as \"3\", do not simplify or fix). Keep all special nouns, people's names, and niche brand names in English, unless they are globally famous brands with standard translations (e.g., Sony -> 索尼)."
 
     def __init__(
         self,
@@ -130,9 +131,9 @@ class ChatGPTAPI(Base):
                 "OPENAI_API_SYS_MSG",
             )  # XXX: for backward compatibility, deprecate soon
             or environ.get(PROMPT_ENV_MAP["system"])
-            or ""
+            or self.DEFAULT_SYS_MSG
         )
-        self.system_content = environ.get("OPENAI_API_SYS_MSG") or ""
+        self.system_content = environ.get("OPENAI_API_SYS_MSG") or self.DEFAULT_SYS_MSG
         self.deployment_id = None
         self.temperature = temperature
         self.model_list = None

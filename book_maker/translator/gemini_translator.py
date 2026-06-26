@@ -111,6 +111,7 @@ class Gemini(Base):
     """
 
     DEFAULT_PROMPT = "Please help me to translate,`{text}` to {language}, please return only translated content not include the origin text"
+    DEFAULT_SYS_MSG = "You are a professional translator. Strictly adhere to the original punctuation and formatting (e.g., keep \"3\" as \"3\", do not simplify or fix). Keep all special nouns, people's names, and niche brand names in English, unless they are globally famous brands with standard translations (e.g., Sony -> 索尼)."
 
     # Configuration constants
     DEFAULT_INTERVAL = 3
@@ -144,7 +145,7 @@ class Gemini(Base):
         self.prompt_sys_msg = (
             prompt_sys_msg
             or environ.get(PROMPT_ENV_MAP["system"])
-            or None  # Allow None, but not empty string
+            or self.DEFAULT_SYS_MSG
         )
         self.interval = self.DEFAULT_INTERVAL
         self.client = genai.Client(api_key=next(self.keys))
