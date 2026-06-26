@@ -234,7 +234,7 @@ bbook --book_name test_books/animal_farm.epub --openai_key ${openai_key} --test
 
 - `--translate-tags`:
 
-  epub is made of html files. By default, we only translate contents in `<p>`.
+  epub is made of html files. By default, we translate contents in `p,h1,h2,h3,h4,h5,h6,li,blockquote`.
   Use `--translate-tags` to specify tags need for translation. Use comma to separate multiple tags.
   For example: `--translate-tags h1,h2,h3,p,div`
 
