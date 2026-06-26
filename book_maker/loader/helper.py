@@ -1,3 +1,4 @@
+from bs4 import BeautifulSoup as bs
 import re
 import backoff
 import logging
@@ -25,7 +26,12 @@ class EPUBBookLoaderHelper:
         ):
             return
         new_p = copy(p)
-        new_p.string = text
+        new_p.clear()
+        new_p.append(bs(text, "html.parser"))
+        
+        # fix EPUB duplicate id issue
+        if not single_translate and new_p.has_attr('id'):
+            del new_p['id']
         if translation_style != "":
             new_p["style"] = translation_style
         p.insert_after(new_p)
