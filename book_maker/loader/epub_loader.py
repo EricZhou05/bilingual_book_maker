@@ -222,14 +222,14 @@ class EPUBBookLoader(BaseBookLoader):
     def _extract_paragraph(self, p):
         for p_exclude in self.exclude_translate_tags.split(","):
             # for issue #280
-            if type(p) is NavigableString:
+            if isinstance(p, NavigableString):
                 continue
             for pt in p.find_all(p_exclude):
                 pt.extract()
         # Exclude content within specified tags from translation (e.g., code, pre)
         exclude_tags_list = [t for t in self.exclude_translate_tags.split(",") if t]
         for tag_name in exclude_tags_list:
-            if type(p) is NavigableString:
+            if isinstance(p, NavigableString):
                 continue
             for pt in p.find_all(tag_name):
                 pt.extract()
@@ -240,7 +240,7 @@ class EPUBBookLoader(BaseBookLoader):
 
         Returns True if the paragraph should be kept but not translated.
         """
-        if type(p) is NavigableString:
+        if isinstance(p, NavigableString):
             return False
 
         # Check if paragraph contains only excluded content tags
@@ -361,11 +361,11 @@ class EPUBBookLoader(BaseBookLoader):
         else:
             t_text = ""
             if self.batch_flag:
-                self.translate_model.add_to_batch_translate_queue(index, new_p.decode_contents(formatter="html") if type(new_p) is not NavigableString else str(new_p))
+                self.translate_model.add_to_batch_translate_queue(index, new_p.decode_contents(formatter="html") if not isinstance(new_p, NavigableString) else str(new_p))
             elif self.batch_use_flag:
                 t_text = self.translate_model.batch_translate(index)
             else:
-                t_text = self.translate_model.translate(new_p.decode_contents(formatter="html") if type(new_p) is not NavigableString else str(new_p))
+                t_text = self.translate_model.translate(new_p.decode_contents(formatter="html") if not isinstance(new_p, NavigableString) else str(new_p))
             
             if t_text is None:
                 raise RuntimeError(
@@ -374,7 +374,7 @@ class EPUBBookLoader(BaseBookLoader):
             
             self.p_to_save.append(t_text)
 
-        if type(p) is NavigableString:
+        if isinstance(p, NavigableString):
             self.helper.insert_trans(
                 p, t_text, self.translation_style, self.single_translate
             )
@@ -414,7 +414,7 @@ class EPUBBookLoader(BaseBookLoader):
                 cached = self.p_to_save[index]
                 entries.append((p, None, cached))
             else:
-                raw = p.decode_contents(formatter="html").rstrip() if type(p) is not NavigableString else str(p).rstrip()
+                raw = p.decode_contents(formatter="html").rstrip() if not isinstance(p, NavigableString) else str(p).rstrip()
                 entries.append((p, raw, None))
 
             index += 1
@@ -456,22 +456,33 @@ class EPUBBookLoader(BaseBookLoader):
             if text is not None:
                 # Fresh translation
                 t = next(translate_iter)
+                
+                orig_format = str(p)
+                sent_format = text
+                received_text = t
+                
                 self._insert_trans_preserving_tags(
                     p, t, self.translation_style, self.single_translate
                 )
+                
+                assembled_format = str(p) if self.single_translate else str(p) + "\n" + str(p.next_sibling)
+                
                 self.p_to_save.append(t)
-                print(text)
+                
+                print("[bold cyan]1. 原始格式 (Original Format):[/bold cyan]\n" + orig_format)
+                print("[bold cyan]2. 发送格式 (Sent Format):[/bold cyan]\n" + sent_format)
+                
                 # Check if translation failed
                 if (
                     self.translate_model.TRANSLATION_ERROR_MARKER is not None
                     and t == self.translate_model.TRANSLATION_ERROR_MARKER
                 ):
-                    print(
-                        f"[bold red][Translation failed for this paragraph][/bold red]"
-                    )
+                    print(f"[bold red]3. 回传文本 (Received Text):\n[Translation failed for this paragraph][/bold red]")
+                    print(f"[bold red]4. 拼装格式 (Assembled Format):\n[Translation failed][/bold red]")
                 else:
-                    print(f"[bold green]{t}[/bold green]")
-                print()
+                    print(f"[bold cyan]3. 回传文本 (Received Text):[/bold cyan]\n[bold green]{received_text}[/bold green]")
+                    print(f"[bold cyan]4. 拼装格式 (Assembled Format):[/bold cyan]\n{assembled_format}")
+                print("-" * 60)
             else:
                 # Resumed from cache
                 self._insert_trans_preserving_tags(
@@ -495,7 +506,7 @@ class EPUBBookLoader(BaseBookLoader):
 
             for p_exclude in self.exclude_translate_tags.split(","):
                 # for issue #280
-                if type(p) is NavigableString:
+                if isinstance(p, NavigableString):
                     continue
                 for pt in temp_p.find_all(p_exclude):
                     pt.extract()
@@ -503,7 +514,7 @@ class EPUBBookLoader(BaseBookLoader):
             # Also exclude content tags (code, pre, etc.)
             exclude_tags_list = [t for t in self.exclude_translate_tags.split(",") if t]
             for tag_name in exclude_tags_list:
-                if type(p) is NavigableString:
+                if isinstance(p, NavigableString):
                     continue
                 for pt in temp_p.find_all(tag_name):
                     pt.extract()
@@ -538,30 +549,59 @@ class EPUBBookLoader(BaseBookLoader):
         if not wait_p_list:
             return
 
-        result_txt_list = self.translate_model.translate_list(wait_p_list)
+        texts_to_translate = [
+            p.decode_contents(formatter="html") if not isinstance(p, NavigableString) else str(p)
+            for p in wait_p_list
+        ]
+        result_txt_list = self.translate_model.translate_list(texts_to_translate)
 
         for i in range(len(wait_p_list)):
             if i < len(result_txt_list):
                 p = wait_p_list[i]
+                orig_format = str(p)
+                sent_format = texts_to_translate[i]
+                received_text = shorter_result_link(result_txt_list[i])
+                
                 self._insert_trans_preserving_tags(
                     p,
-                    shorter_result_link(result_txt_list[i]),
+                    received_text,
                     self.translation_style,
                     single_translate,
                 )
+                
+                assembled_format = str(p) if single_translate else str(p) + "\n" + str(p.next_sibling)
+                
+                print("[bold cyan]1. 原始格式 (Original Format):[/bold cyan]\n" + orig_format)
+                print("[bold cyan]2. 发送格式 (Sent Format):[/bold cyan]\n" + sent_format)
+                print(f"[bold cyan]3. 回传文本 (Received Text):[/bold cyan]\n[bold green]{received_text}[/bold green]")
+                print(f"[bold cyan]4. 拼装格式 (Assembled Format):[/bold cyan]\n{assembled_format}")
+                print("-" * 60)
 
         wait_p_list.clear()
 
     def _deal_new_acc(self, p, wait_p_list, single_translate):
         """Helper for translate_paragraphs_acc - process single paragraph."""
         self._deal_old_acc(wait_p_list, single_translate)
-        translation = self.translate_model.translate(p.decode_contents(formatter="html") if type(p) is not NavigableString else str(p))
+        
+        orig_format = str(p)
+        sent_format = p.decode_contents(formatter="html") if not isinstance(p, NavigableString) else str(p)
+        
+        translation = self.translate_model.translate(sent_format)
+        
         self._insert_trans_preserving_tags(
             p,
             translation,
             self.translation_style,
             single_translate,
         )
+        
+        assembled_format = str(p) if single_translate else str(p) + "\n" + str(p.next_sibling)
+        
+        print("[bold cyan]1. 原始格式 (Original Format):[/bold cyan]\n" + orig_format)
+        print("[bold cyan]2. 发送格式 (Sent Format):[/bold cyan]\n" + sent_format)
+        print(f"[bold cyan]3. 回传文本 (Received Text):[/bold cyan]\n[bold green]{translation}[/bold green]")
+        print(f"[bold cyan]4. 拼装格式 (Assembled Format):[/bold cyan]\n{assembled_format}")
+        print("-" * 60)
 
     def _split_into_sentences(self, text):
         """Split text into sentences on punctuation followed by whitespace + uppercase."""
@@ -941,7 +981,7 @@ class EPUBBookLoader(BaseBookLoader):
                         # Use chapter-specific context for translation
                         t_text = self._translate_with_chapter_context(
                             thread_translator,
-                            new_p.decode_contents(formatter="html") if type(new_p) is not NavigableString else str(new_p),
+                            new_p.decode_contents(formatter="html") if not isinstance(new_p, NavigableString) else str(new_p),
                             chapter_context_list,
                             chapter_translated_list,
                         )
@@ -1053,8 +1093,12 @@ class EPUBBookLoader(BaseBookLoader):
                         self.translated_list.copy()
                     )
 
+                    texts_to_translate = [
+                        p.decode_contents(formatter="html") if not isinstance(p, NavigableString) else str(p)
+                        for p in wait_p_list
+                    ]
                     # Call translate_list for consistent batch translation logic
-                    result_txt_list = self.translator.translate_list(wait_p_list)
+                    result_txt_list = self.translator.translate_list(texts_to_translate)
 
                     # Update chapter context from translator
                     self.context_list[:] = self.translator.context_list
@@ -1064,13 +1108,25 @@ class EPUBBookLoader(BaseBookLoader):
                     for i in range(len(wait_p_list)):
                         if i < len(result_txt_list):
                             p = wait_p_list[i]
+                            
+                            orig_format = str(p)
+                            sent_format = texts_to_translate[i]
+                            received_text = shorter_result_link(result_txt_list[i])
 
                             self.parent_loader._insert_trans_preserving_tags(
                                 p,
-                                shorter_result_link(result_txt_list[i]),
+                                received_text,
                                 self.parent_loader.translation_style,
                                 single_translate,
                             )
+                            
+                            assembled_format = str(p) if single_translate else str(p) + "\n" + str(p.next_sibling)
+                            
+                            print("[bold cyan]1. 原始格式 (Original Format):[/bold cyan]\n" + orig_format)
+                            print("[bold cyan]2. 发送格式 (Sent Format):[/bold cyan]\n" + sent_format)
+                            print(f"[bold cyan]3. 回传文本 (Received Text):[/bold cyan]\n[bold green]{received_text}[/bold green]")
+                            print(f"[bold cyan]4. 拼装格式 (Assembled Format):[/bold cyan]\n{assembled_format}")
+                            print("-" * 60)
 
                 finally:
                     # Restore original context
@@ -1081,13 +1137,26 @@ class EPUBBookLoader(BaseBookLoader):
 
             def deal_new(self, p, wait_p_list, single_translate):
                 self.deal_old(wait_p_list, single_translate)
-                translation = self.translate_with_context(p.decode_contents(formatter="html") if type(p) is not NavigableString else str(p))
+                
+                orig_format = str(p)
+                sent_format = p.decode_contents(formatter="html") if not isinstance(p, NavigableString) else str(p)
+                
+                translation = self.translate_with_context(sent_format)
+                
                 self.parent_loader._insert_trans_preserving_tags(
                     p,
                     translation,
                     self.parent_loader.translation_style,
                     single_translate,
                 )
+                
+                assembled_format = str(p) if single_translate else str(p) + "\n" + str(p.next_sibling)
+                
+                print("[bold cyan]1. 原始格式 (Original Format):[/bold cyan]\n" + orig_format)
+                print("[bold cyan]2. 发送格式 (Sent Format):[/bold cyan]\n" + sent_format)
+                print(f"[bold cyan]3. 回传文本 (Received Text):[/bold cyan]\n[bold green]{translation}[/bold green]")
+                print(f"[bold cyan]4. 拼装格式 (Assembled Format):[/bold cyan]\n{assembled_format}")
+                print("-" * 60)
 
         chapter_helper = ChapterHelper(
             self, translator, chapter_context_list, chapter_translated_list
@@ -1372,7 +1441,7 @@ class EPUBBookLoader(BaseBookLoader):
                         # PR welcome here
                         if index < p_to_save_len:
                             new_p = copy(p)
-                            if type(p) is NavigableString:
+                            if isinstance(p, NavigableString):
                                 new_p = self.p_to_save[index]
                             else:
                                 new_p.string = self.p_to_save[index]

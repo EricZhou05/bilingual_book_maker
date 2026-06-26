@@ -1,4 +1,6 @@
 from bs4 import BeautifulSoup as bs
+from bs4 import NavigableString
+from rich import print
 import re
 import backoff
 import logging
@@ -50,28 +52,57 @@ class EPUBBookLoaderHelper:
 
     def deal_new(self, p, wait_p_list, single_translate=False):
         self.deal_old(wait_p_list, single_translate, self.context_flag)
+        
+        orig_format = str(p)
+        sent_format = p.text
+        received_text = shorter_result_link(self.translate_with_backoff(sent_format, self.context_flag))
+        
         self.insert_trans(
             p,
-            shorter_result_link(self.translate_with_backoff(p.text, self.context_flag)),
+            received_text,
             self.translation_style,
             single_translate,
         )
+        
+        assembled_format = str(p) if single_translate else str(p) + "\n" + str(p.next_sibling)
+        
+        print("[bold cyan]1. 原始格式 (Original Format):[/bold cyan]\n" + orig_format)
+        print("[bold cyan]2. 发送格式 (Sent Format):[/bold cyan]\n" + sent_format)
+        print(f"[bold cyan]3. 回传文本 (Received Text):[/bold cyan]\n[bold green]{received_text}[/bold green]")
+        print(f"[bold cyan]4. 拼装格式 (Assembled Format):[/bold cyan]\n{assembled_format}")
+        print("-" * 60)
 
     def deal_old(self, wait_p_list, single_translate=False, context_flag=False):
         if not wait_p_list:
             return
 
-        result_txt_list = self.translate_model.translate_list(wait_p_list)
+        texts_to_translate = [
+            p.decode_contents(formatter="html") if not isinstance(p, NavigableString) else str(p)
+            for p in wait_p_list
+        ]
+        result_txt_list = self.translate_model.translate_list(texts_to_translate)
 
         for i in range(len(wait_p_list)):
             if i < len(result_txt_list):
                 p = wait_p_list[i]
+                orig_format = str(p)
+                sent_format = texts_to_translate[i]
+                received_text = shorter_result_link(result_txt_list[i])
+                
                 self.insert_trans(
                     p,
-                    shorter_result_link(result_txt_list[i]),
+                    received_text,
                     self.translation_style,
                     single_translate,
                 )
+                
+                assembled_format = str(p) if single_translate else str(p) + "\n" + str(p.next_sibling)
+                
+                print("[bold cyan]1. 原始格式 (Original Format):[/bold cyan]\n" + orig_format)
+                print("[bold cyan]2. 发送格式 (Sent Format):[/bold cyan]\n" + sent_format)
+                print(f"[bold cyan]3. 回传文本 (Received Text):[/bold cyan]\n[bold green]{received_text}[/bold green]")
+                print(f"[bold cyan]4. 拼装格式 (Assembled Format):[/bold cyan]\n{assembled_format}")
+                print("-" * 60)
 
         wait_p_list.clear()
 
