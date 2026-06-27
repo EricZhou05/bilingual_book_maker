@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup as bs
 from bs4 import NavigableString
 from rich import print
+import html
 import re
 import backoff
 import logging
@@ -22,6 +23,11 @@ class EPUBBookLoaderHelper:
     def insert_trans(self, p, text, translation_style="", single_translate=False):
         if text is None:
             text = ""
+            
+        text = text.replace("＆", "&")
+        text = html.unescape(text)
+        text = re.sub(r'<span class="Apple-converted-space">.*?</span>', '', text)
+
         if (
             p.string is not None
             and p.string.replace(" ", "").strip() == text.replace(" ", "").strip()
